@@ -1,1 +1,293 @@
- 
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
+  passwordHash  String
+  role          UserRole  @default(JOBSEEKER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLogin     DateTime?
+  status        UserStatus @default(ACTIVE)
+  profile       UserProfile?
+  skills        UserSkill[]
+  applications  JobApplication[]
+  notifications Notification[]
+  logs          SystemLog[]
+  // Added relations for recruiters
+  companyId     Int?
+  company       Company?    @relation(fields: [companyId], references: [id])
+  createdJobs   Job[]       @relation("CreatedByRecruiter")
+}
+
+model UserProfile {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @unique
+  firstName   String?
+  lastName    String?
+  phone       String?
+  location    String?
+  bio         String?
+  avatarUrl   String?
+  department  String?
+  joinedDate  DateTime?
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model Company {
+  id            Int       @id @default(autoincrement())
+  name          String
+  industry      String?
+  size          String?
+  foundingYear  Int?
+  website       String?
+  description   String?
+  mission       String?
+  logoUrl       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  values        CompanyValue[]
+  benefits      CompanyBenefit[]
+  locations     CompanyLocation[]
+  jobs          Job[]
+  // Added relations
+  recruiters    User[]
+  industryId    Int?
+  industryRel   Industry?   @relation(fields: [industryId], references: [id])
+  locationId    Int?
+  locationRel   Location?   @relation(fields: [locationId], references: [id])
+}
+
+model CompanyValue {
+  id          Int      @id @default(autoincrement())
+  companyId   Int
+  value       String
+  description String?
+  company     Company  @relation(fields: [companyId], references: [id])
+}
+
+model CompanyBenefit {
+  id          Int      @id @default(autoincrement())
+  companyId   Int
+  benefit     String
+  description String?
+  company     Company  @relation(fields: [companyId], references: [id])
+}
+
+model CompanyLocation {
+  id             Int      @id @default(autoincrement())
+  companyId      Int
+  address        String
+  city           String?
+  state          String?
+  country        String?
+  isHeadquarters Boolean  @default(false)
+  company        Company  @relation(fields: [companyId], references: [id])
+}
+
+model Job {
+  id              Int       @id @default(autoincrement())
+  companyId       Int
+  title           String
+  description     String
+  requirements    String?
+  responsibilities String?
+  salaryRange     String?
+  jobType         JobType
+  experienceLevel ExperienceLevel
+  locationType    LocationType
+  status          JobStatus @default(DRAFT)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  company         Company   @relation(fields: [companyId], references: [id])
+  applications    JobApplication[]
+  requiredSkills  JobRequiredSkill[]
+  // Added relations
+  createdById     Int?
+  createdBy       User?     @relation("CreatedByRecruiter", fields: [createdById], references: [id])
+  categoryId      Int?
+  category        Category? @relation(fields: [categoryId], references: [id])
+  industryId      Int?
+  industry        Industry? @relation(fields: [industryId], references: [id])
+  locationId      Int?
+  location        Location? @relation(fields: [locationId], references: [id])
+}
+
+model JobApplication {
+  id          Int       @id @default(autoincrement())
+  jobId       Int
+  jobseekerId Int
+  status      ApplicationStatus @default(PENDING)
+  coverLetter String?
+  resumeUrl   String?
+  appliedAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  job         Job       @relation(fields: [jobId], references: [id])
+  jobseeker   User      @relation(fields: [jobseekerId], references: [id])
+}
+
+model Skill {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  category    String?
+  status      Status    @default(ACTIVE)
+  userSkills  UserSkill[]
+  jobSkills   JobRequiredSkill[]
+}
+
+model UserSkill {
+  id                  Int       @id @default(autoincrement())
+  userId              Int
+  skillId             Int
+  proficiencyLevel    ProficiencyLevel
+  yearsOfExperience   Int?
+  user                User      @relation(fields: [userId], references: [id])
+  skill               Skill     @relation(fields: [skillId], references: [id])
+
+  @@unique([userId, skillId])
+}
+
+model JobRequiredSkill {
+  id              Int       @id @default(autoincrement())
+  jobId           Int
+  skillId         Int
+  importanceLevel ImportanceLevel
+  job             Job       @relation(fields: [jobId], references: [id])
+  skill           Skill     @relation(fields: [skillId], references: [id])
+
+  @@unique([jobId, skillId])
+}
+
+model Notification {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  title     String
+  message   String
+  type      NotificationType
+  isRead    Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id])
+}
+
+model SystemLog {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  action    String
+  details   String?
+  ipAddress String?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id])
+}
+
+// Added new models needed by the controller
+model Category {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?
+  status      Status    @default(ACTIVE)
+  jobs        Job[]
+}
+
+model Industry {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?
+  status      Status    @default(ACTIVE)
+  companies   Company[]
+  jobs        Job[]
+}
+
+model Location {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?
+  status      Status    @default(ACTIVE)
+  companies   Company[]
+  jobs        Job[]
+}
+
+model Setting {
+  key         String    @id
+  value       String
+  description String?
+}
+
+enum UserRole {
+  ADMIN
+  RECRUITER
+  JOBSEEKER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+}
+
+enum ExperienceLevel {
+  ENTRY
+  MID
+  SENIOR
+  EXECUTIVE
+}
+
+enum LocationType {
+  REMOTE
+  HYBRID
+  ONSITE
+}
+
+enum JobStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum ApplicationStatus {
+  PENDING
+  SHORTLISTED
+  REJECTED
+  HIRED
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+}
+
+enum ProficiencyLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum ImportanceLevel {
+  REQUIRED
+  PREFERRED
+  NICE_TO_HAVE
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+}
